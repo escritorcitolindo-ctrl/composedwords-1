@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compound Words Adventure</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --duo-green: #58cc02;
+            --duo-blue: #1cb0f6;
+            --duo-border: #e5e5e5;
+            --duo-text: #4b4b4b;
+        }
+
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #ffffff;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--duo-text);
+        }
+
+        #app-container {
+            width: 95%;
+            max-width: 600px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 16px;
+            background: var(--duo-border);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        #progress {
+            width: 0%;
+            height: 100%;
+            background: var(--duo-green);
+            border-radius: 10px;
+            transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        /* Flashcard Design */
+        .card-container {
+            perspective: 1000px;
+            width: 100%;
+            height: 450px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+        }
+
+        .card.flipped { transform: rotateY(180deg); }
+
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border: 3px solid var(--duo-border);
+            border-radius: 25px;
+            box-shadow: 0 8px 0 var(--duo-border);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .card-back { transform: rotateY(180deg); border-color: var(--duo-blue); box-shadow: 0 8px 0 #1899d6; }
+
+        .card-face img {
+            width: 250px;
+            height: 250px;
+            object-fit: contain;
+            margin-bottom: 15px;
+        }
+
+        .math-text { font-size: 28px; font-weight: 900; color: #afafaf; margin: 10px 0; }
+        .word-title { font-size: 36px; font-weight: 900; color: var(--duo-blue); }
+        .word-sub { font-size: 24px; font-weight: 700; color: #777; }
+
+        /* Buttons and UI */
+        .btn {
+            background: var(--duo-green);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 15px;
+            font-size: 20px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 5px 0 #46a302;
+            width: 100%;
+            transition: 0.1s;
+            text-transform: uppercase;
+        }
+
+        .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #46a302; }
+        .btn:disabled { background: #e5e5e5; box-shadow: 0 5px 0 #afafaf; color: #afafaf; cursor: not-allowed; }
+
+        .quiz-option {
+            background: white;
+            border: 2px solid var(--duo-border);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 15px;
+            font-size: 22px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .quiz-option:hover { background: #f7f7f7; border-color: #afafaf; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid var(--duo-border);
+            font-size: 20px;
+            margin-bottom: 15px;
+            outline: none;
+            text-align: center;
+        }
+
+        #leaderboard-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+        #leaderboard-table td { padding: 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="progress-bar"><div id="progress"></div></div>
+    <div id="game-zone"></div>
+</div>
+
+<script>
+    const vocabulary = [
+        { p1: "Sun", s1: "Sol", p2: "Flower", s2: "Flor", res: "Sunflower", sres: "Girasol", img: "https://cdn-icons-png.flaticon.com/512/869/869840.png" },
+        { p1: "Snow", s1: "Nieve", p2: "Flake", s2: "Escama", res: "Snowflake", sres: "Copo de nieve", img: "https://cdn-icons-png.flaticon.com/512/2530/2530005.png" },
+        { p1: "Star", s1: "Estrella", p2: "Fish", s2: "Pez", res: "Starfish", sres: "Estrella de mar", img: "https://cdn-icons-png.flaticon.com/512/2105/2105021.png" },
+        { p1: "Day", s1: "Día", p2: "Light", s2: "Luz", res: "Daylight", sres: "Luz del día", img: "https://cdn-icons-png.flaticon.com/512/1163/1163661.png" },
+        { p1: "Thunder", s1: "Trueno", p2: "Storm", s2: "Tormenta", res: "Thunderstorm", sres: "Tormenta eléctrica", img: "https://cdn-icons-png.flaticon.com/512/1779/1779927.png" },
+        { p1: "Bed", s1: "Cama", p2: "Room", s2: "Habitación", res: "Bedroom", sres: "Dormitorio", img: "https://cdn-icons-png.flaticon.com/512/2286/2286012.png" },
+        { p1: "Tooth", s1: "Diente", p2: "Brush", s2: "Cepillo", res: "Toothbrush", sres: "Cepillo de dientes", img: "https://cdn-icons-png.flaticon.com/512/822/822143.png" },
+        { p1: "Note", s1: "Nota", p2: "Book", s2: "Libro", res: "Notebook", sres: "Cuaderno", img: "https://cdn-icons-png.flaticon.com/512/3075/3075908.png" },
+        { p1: "Key", s1: "Tecla", p2: "Board", s2: "Tablero", res: "Keyboard", sres: "Teclado", img: "https://cdn-icons-png.flaticon.com/512/2888/2888703.png" },
+        { p1: "Cup", s1: "Taza", p2: "Board", s2: "Tabla", res: "Cupboard", sres: "Alacena", img: "https://cdn-icons-png.flaticon.com/512/1663/1663756.png" },
+        { p1: "Table", s1: "Mesa", p2: "Cloth", s2: "Tela", res: "Tablecloth", sres: "Mantel", img: "https://cdn-icons-png.flaticon.com/512/2210/2210633.png" },
+        { p1: "Eye", s1: "Ojo", p2: "Lashes", s2: "Latigazos", res: "Eyelashes", sres: "Pestañas", img: "https://cdn-icons-png.flaticon.com/512/3163/3163231.png" },
+        { p1: "Arm", s1: "Brazo", p2: "Pit", s2: "Pozo", res: "Armpit", sres: "Axila", img: "https://cdn-icons-png.flaticon.com/512/2361/2361138.png" },
+        { p1: "Finger", s1: "Dedo", p2: "Print", s2: "Impresión", res: "Fingerprint", sres: "Huella dactilar", img: "https://cdn-icons-png.flaticon.com/512/2913/2913574.png" },
+        { p1: "Wrist", s1: "Muñeca", p2: "Watch", s2: "Reloj", res: "Wristwatch", sres: "Reloj de pulsera", img: "https://cdn-icons-png.flaticon.com/512/2784/2784400.png" },
+        { p1: "Hand", s1: "Mano", p2: "Bag", s2: "Bolso", res: "Handbag", sres: "Cartera", img: "https://cdn-icons-png.flaticon.com/512/2905/2905001.png" },
+        { p1: "Butter", s1: "Mantequilla", p2: "Fly", s2: "Mosca", res: "Butterfly", sres: "Mariposa", img: "https://cdn-icons-png.flaticon.com/512/1000/1000997.png" },
+        { p1: "Pine", s1: "Pino", p2: "Apple", s2: "Manzana", res: "Pineapple", sres: "Piña", img: "https://cdn-icons-png.flaticon.com/512/1514/1514935.png" },
+        { p1: "Honey", s1: "Miel", p2: "Moon", s2: "Luna", res: "Honeymoon", sres: "Luna de miel", img: "https://cdn-icons-png.flaticon.com/512/3656/3656842.png" },
+        { p1: "Fire", s1: "Fuego", p2: "Fly", s2: "Mosca", res: "Firefly", sres: "Luciérnaga", img: "https://cdn-icons-png.flaticon.com/512/2037/2037920.png" },
+        { p1: "Hot", s1: "Caliente", p2: "Dog", s2: "Perro", res: "Hotdog", sres: "Perro caliente", img: "https://cdn-icons-png.flaticon.com/512/732/732217.png" },
+        { p1: "Dragon", s1: "Dragón", p2: "Fly", s2: "Mosca", res: "Dragonfly", sres: "Libélula", img: "https://cdn-icons-png.flaticon.com/512/3553/3553557.png" },
+        { p1: "Lady", s1: "Dama", p2: "Bug", s2: "Bicho", res: "Ladybug", sres: "Mariquita", img: "https://cdn-icons-png.flaticon.com/512/2038/2038031.png" },
+        { p1: "Egg", s1: "Huevo", p2: "Plant", s2: "Planta", res: "Eggplant", sres: "Berenjena", img: "https://cdn-icons-png.flaticon.com/512/765/765544.png" },
+        { p1: "Bull", s1: "Toro", p2: "Frog", s2: "Rana", res: "Bullfrog", sres: "Rana toro", img: "https://cdn-icons-png.flaticon.com/512/3143/3143640.png" },
+        { p1: "Sweet", s1: "Dulce", p2: "Heart", s2: "Corazón", res: "Sweetheart", sres: "Cariño", img: "https://cdn-icons-png.flaticon.com/512/2904/2904973.png" },
+        { p1: "BoyGirl", s1: "ChicoChica", p2: "Friend", s2: "Amigo", res: "Boyfriend", sres: "Novio", img: "https://cdn-icons-png.flaticon.com/512/3367/3367464.png" },
+        { p1: "Body", s1: "Cuerpo", p2: "Guard", s2: "Guardia", res: "Bodyguard", sres: "Guardaespaldas", img: "https://cdn-icons-png.flaticon.com/512/2622/2622151.png" },
+        { p1: "Back", s1: "Espalda", p2: "Ground", s2: "Suelo", res: "Background", sres: "Fondo", img: "https://cdn-icons-png.flaticon.com/512/3342/3342176.png" },
+        { p1: "Under", s1: "Debajo", p2: "Stand", s2: "Pararse", res: "Understand", sres: "Entender", img: "https://cdn-icons-png.flaticon.com/512/3593/3593510.png" },
+        { p1: "Hard", s1: "Duro", p2: "Ware", s2: "Mercancía", res: "Hardware", sres: "Equipo físico", img: "https://cdn-icons-png.flaticon.com/512/689/689304.png" },
+        { p1: "Soft", s1: "Blando", p2: "Ware", s2: "Mercancía", res: "Software", sres: "Programas", img: "https://cdn-icons-png.flaticon.com/512/1055/1055683.png" },
+        { p1: "Dead", s1: "Muerto", p2: "Line", s2: "Línea", res: "Deadline", sres: "Fecha límite", img: "https://cdn-icons-png.flaticon.com/512/2362/2362327.png" },
+        { p1: "Pan", s1: "Sartén", p2: "Cake", s2: "Pastel", res: "Pancake", sres: "Panqueque", img: "https://cdn-icons-png.flaticon.com/512/2454/2454514.png" },
+        { p1: "Break", s1: "Romper", p2: "Fast", s2: "Ayuno", res: "Breakfast", sres: "Desayuno", img: "https://cdn-icons-png.flaticon.com/512/3068/3068391.png" },
+        { p1: "Jelly", s1: "Gelatina", p2: "Fish", s2: "Pez", res: "Jellyfish", sres: "Medusa", img: "https://cdn-icons-png.flaticon.com/512/2105/2105038.png" }
+    ];
+
+    let currentIndex = 0;
+    let players = JSON.parse(localStorage.getItem('compound_players') || '[]');
+
+    function speak(text, lang) {
+        const ut = new SpeechSynthesisUtterance(text);
+        ut.lang = lang;
+        ut.rate = 0.85;
+        window.speechSynthesis.speak(ut);
+    }
+
+    function feedback(correct) {
+        if (correct) {
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+            speak(Math.random() > 0.5 ? "Great job" : "Good work", 'en-US');
+            setTimeout(nextStep, 2000);
+        } else {
+            speak("Almost perfect", 'en-US');
+        }
+    }
+
+    function normalize(text) {
+        return text.toLowerCase().replace(/[^\w\s]/g, "").trim();
+    }
+
+    function renderFlashcard() {
+        const item = vocabulary[currentIndex];
+        const zone = document.getElementById('game-zone');
+        document.getElementById('progress').style.width = `${(currentIndex / vocabulary.length) * 100}%`;
+
+        zone.innerHTML = `
+            <div class="card-container">
+                <div class="card" id="activeCard" onclick="flip(this)">
+                    <div class="card-face">
+                        <img src="${item.img}" alt="Concept">
+                        <div class="word-title">${item.p1} + ${item.p2}</div>
+                        <div class="word-sub">${item.s1} + ${item.s2}</div>
+                        <p style="color:#1cb0f6; font-weight:bold; margin-top:20px;">CLICK TO COMBINE</p>
+                    </div>
+                    <div class="card-back card-face">
+                        <img src="${item.img}" alt="Result">
+                        <div class="word-title" style="color:#58cc02">${item.res}</div>
+                        <div class="word-sub">${item.sres}</div>
+                    </div>
+                </div>
+            </div>
+            <button id="learnedBtn" class="btn" disabled onclick="startQuiz()">APRENDIDO</button>
+        `;
+        speak(`${item.p1} and ${item.p2}`, 'en-US');
+    }
+
+    function flip(el) {
+        el.classList.add('flipped');
+        document.getElementById('learnedBtn').disabled = false;
+        const item = vocabulary[currentIndex];
+        speak(item.res, 'en-US');
+        setTimeout(() => speak(item.sres, 'es-MX'), 800);
+    }
+
+    function startQuiz() {
+        const types = ['reading', 'listening', 'writing', 'speaking'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        renderQuiz(type);
+    }
+
+    function renderQuiz(type) {
+        const item = vocabulary[currentIndex];
+        const zone = document.getElementById('game-zone');
+        let html = `<h2 style="text-transform:uppercase; color:#afafaf">${type} Challenge!</h2>`;
+
+        const sentences = [
+            { en: `The ${item.res} is big`, es: `El ${item.sres} es grande` },
+            { en: `I see a ${item.res} today`, es: `Veo un ${item.sres} hoy` },
+            { en: `Yesterday I had a ${item.res}`, es: `Ayer tuve un ${item.sres}` }
+        ];
+        const sentence = sentences[Math.floor(Math.random() * sentences.length)];
+
+        if (type === 'reading') {
+            html += `<p style="font-size:24px">Translate: "<b>${item.sres}</b>"</p>`;
+            const opts = [item.res, "Water", "Fire", "Sky"].sort(() => Math.random() - 0.5);
+            opts.forEach(o => html += `<div class="quiz-option" onclick="checkAnswer('${o}','${item.res}')">${o}</div>`);
+        } 
+        else if (type === 'listening') {
+            html += `<button class="btn" style="background:#1cb0f6; margin-bottom:20px" onclick="speak('${item.res}', 'en-US')">🔊 LISTEN</button>`;
+            const opts = [item.res, item.p1, item.p2, "Nothing"].sort(() => Math.random() - 0.5);
+            opts.forEach(o => html += `<div class="quiz-option" onclick="checkAnswer('${o}','${item.res}')">${o}</div>`);
+        }
+        else if (type === 'writing') {
+            html += `<p>${sentence.es}</p><input type="text" id="wInput" placeholder="Escribe en Inglés...">
+                     <button class="btn" onclick="checkWrite('${normalize(sentence.en)}')">CHECK</button>`;
+        }
+        else if (type === 'speaking') {
+            html += `<p>Say it loud!</p><h1 style="color:var(--duo-blue)">${item.res}</h1>
+                     <button class="btn" style="background:#1cb0f6" onclick="feedback(true)">I SPARKED!</button>`;
+        }
+
+        zone.innerHTML = html;
+        if(type === 'writing') speak(sentence.es, 'es-MX');
+    }
+
+    function checkAnswer(s, c) { s === c ? feedback(true) : feedback(false); }
+
+    function checkWrite(correct) {
+        const val = normalize(document.getElementById('wInput').value);
+        val.includes(normalize(vocabulary[currentIndex].res)) ? feedback(true) : feedback(false);
+    }
+
+    function nextStep() {
+        currentIndex++;
+        currentIndex < vocabulary.length ? renderFlashcard() : showGameOver();
+    }
+
+    function showGameOver() {
+        const zone = document.getElementById('game-zone');
+        zone.innerHTML = `
+            <h1 style="font-size:50px">GAME OVER</h1>
+            <p>You learned 36 new compound words!</p>
+            <input type="text" id="pName" placeholder="Tu nombre...">
+            <button class="btn" onclick="save()">REGISTRAR NOMBRE</button>
+            <div id="board"></div>
+        `;
+        updateBoard();
+    }
+
+    function save() {
+        const n = document.getElementById('pName').value || "Student";
+        players.push({name: n, date: new Date().toLocaleDateString()});
+        localStorage.setItem('compound_players', JSON.stringify(players));
+        updateBoard();
+    }
+
+    function updateBoard() {
+        const b = document.getElementById('board');
+        b.innerHTML = `<h3>Listado de Participantes:</h3><table id="leaderboard-table">` + 
+            players.map(p => `<tr><td><b>${p.name}</b></td><td>${p.date}</td></tr>`).join('') + `</table>`;
+    }
+
+    renderFlashcard();
+</script>
+</body>
+</html>
